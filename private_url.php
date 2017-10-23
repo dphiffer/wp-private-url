@@ -46,6 +46,7 @@ class prvurl {
 		add_action('save_post', array(&$this, 'save_post'));
 		add_filter('posts_results', array(&$this, 'posts_results'));
 		add_filter('redirect_canonical', array(&$this, 'redirect_canonical'), 10, 2);
+		add_filter('private_title_format', array(&$this, 'private_title_format'));
 		//setup some defaults incase we have no options
 		if (!$this->salt = get_option('prvurl_salt'))
 			$this->salt = 'this privacy is not worth its salt';
@@ -107,7 +108,6 @@ class prvurl {
 		return $where;
 	}
 
-
 	//This performs a hash of the data combined with the salt
 	function generate_key($data, $salt) {
 		if ( function_exists('hash_hmac') ) {
@@ -135,6 +135,7 @@ class prvurl {
 		if (strcmp($key, $pass) != 0) {
 			return $posts;
 		}
+		$posts[0]->private = true;
 		$posts[0]->post_status = 'publish';
 		return $posts;
 	}
@@ -168,9 +169,16 @@ class prvurl {
 		$post_id = $matches[1];
 		$post = get_post($post_id);
 		if ($post->post_status == 'private') {
+			// For posts that are private, don't redirect to the canonical URL
 			return false;
 		}
 		return $redirect_url;
+	}
+
+	function private_title_format($format) {
+		global $post;
+		$post->private = true;
+		return '%s';
 	}
 
 	function modify_post_link($permalink, $post, $leavename) {
