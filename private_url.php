@@ -45,6 +45,7 @@ class prvurl {
 		add_action('load-post.php', array(&$this, 'load_post'));
 		add_action('save_post', array(&$this, 'save_post'));
 		add_filter('posts_results', array(&$this, 'posts_results'));
+		add_filter('redirect_canonical', array(&$this, 'redirect_canonical'), 10, 2);
 		//setup some defaults incase we have no options
 		if (!$this->salt = get_option('prvurl_salt'))
 			$this->salt = 'this privacy is not worth its salt';
@@ -100,7 +101,7 @@ class prvurl {
 	function posts_where($where) {
 		$pass = get_query_var('p');
 		$id = get_query_var($this->id_tag);
-		if (empty($pass) or empty($id))
+		if (empty($pass) || empty($id))
 			return $where;
 		$where = "AND (post_status = 'private' OR post_status = 'publish') AND ID = $id";
 		return $where;
@@ -123,10 +124,10 @@ class prvurl {
 	function posts_results($posts) {
 		$id = get_query_var('p');
 		$pass = get_query_var($this->pass_tag);
-		if (empty($id) or empty($pass)) {
+		if (empty($id) || empty($pass)) {
 			return $posts;
 		}
-		$post_salt =  get_post_meta($posts[0]->ID, $this->salt_key, true);
+		$post_salt = get_post_meta($posts[0]->ID, $this->salt_key, true);
 		if ($post_salt == '')
 			$post_salt = $this->salt;
 		$data = $id;
@@ -155,6 +156,21 @@ class prvurl {
 	function save_post($post_id) {
 		$post_salt = $this->salt;
 		update_post_meta($post_id, $this->salt_key, $post_salt);
+	}
+
+	function redirect_canonical($redirect_url, $requested_url) {
+		if (! preg_match('/p=(\d+)/', $requested_url, $matches)) {
+			$path = get_option('prvurl_path');
+			if (! preg_match("/$path\/(\d+)\//", $requested_url, $matches)) {
+				return $redirect_url;
+			}
+		}
+		$post_id = $matches[1];
+		$post = get_post($post_id);
+		if ($post->post_status == 'private') {
+			return false;
+		}
+		return $redirect_url;
 	}
 
 	function modify_post_link($permalink, $post, $leavename) {
