@@ -53,9 +53,23 @@ class prvurl {
 
 	function activate() {
 		if (!get_option('prvurl_path'))
-			add_option('prvurl_path', 'private', 'The path for private urls.', 'no');
-		if (!get_option('prvurl_salt'))
-			add_option('prvurl_salt', 'no one need ever know', 'The default salt for posts.', 'no');
+			add_option('prvurl_path', 'private', '', 'no');
+		$salt = get_option('prvurl_salt');
+		if (! $salt || $salt == 'no one need ever know') {
+			$salt = wp_salt();
+			// Use the global auth salt
+			if ($salt == 'put your unique phrase here') {
+				// Or... maybe not
+				$rsp = wp_remote_get('https://api.wordpress.org/secret-key/1.1/salt/');
+				$body = wp_remote_retrieve_body($rsp);
+				if (preg_match("/^define\('AUTH_KEY',\s*'(.+?)'/", $body, $matches)) {
+					$salt = $matches[1];
+				} else {
+					$salt = 'this privacy is not worth its salt';
+				}
+			}
+			update_option('prvurl_salt', $salt, '', 'no');
+		}
 		return true;
 	}
 
