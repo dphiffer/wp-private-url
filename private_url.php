@@ -43,10 +43,11 @@ class prvurl {
 		add_action('template_redirect', array(&$this, 'template_redirect'));
 		add_action('admin_menu', array(&$this, 'admin_menu'));
 		add_action('load-post.php', array(&$this, 'load_post'));
+		add_action('save_post', array(&$this, 'save_post'));
 		add_filter('posts_results', array(&$this, 'posts_results'));
 		//setup some defaults incase we have no options
 		if (!$this->salt = get_option('prvurl_salt'))
-			$this->salt = 'no one need ever know';
+			$this->salt = 'this privacy is not worth its salt';
 		if (!$this->link_base = get_option('prvurl_path'))
 			$this->link_base = 'private';
 	}
@@ -59,7 +60,7 @@ class prvurl {
 			$salt = wp_salt();
 			// Use the global auth salt
 			if ($salt == 'put your unique phrase here') {
-				// Or... maybe not
+				// Unless it hasn't been assigned, just load up some new salt
 				$rsp = wp_remote_get('https://api.wordpress.org/secret-key/1.1/salt/');
 				$body = wp_remote_retrieve_body($rsp);
 				if (preg_match("/^define\('AUTH_KEY',\s*'(.+?)'/", $body, $matches)) {
@@ -69,6 +70,7 @@ class prvurl {
 				}
 			}
 			update_option('prvurl_salt', $salt, '', 'no');
+			$this->salt = $salt;
 		}
 		return true;
 	}
@@ -150,14 +152,21 @@ class prvurl {
 		add_filter('post_link', array(&$this, 'modify_post_link'));
 	}
 
+	function save_post($post_id) {
+		$post_salt = $this->salt;
+		update_post_meta($post_id, $this->salt_key, $post_salt);
+	}
+
 	function modify_post_link($permalink, $post, $leavename) {
 		global $post;
 		if ($post->post_status != 'private') {
 			return $permalink;
 		}
-		$salt = $this->salt;
+		$post_salt = get_post_meta($posts[0]->ID, $this->salt_key, true);
+		if ($post_salt == '')
+			$post_salt = $this->salt;
 		$data = $post->ID;
-		$key = $this->generate_key($data, $salt);
+		$key = $this->generate_key($data, $post_salt);
 		$theurl = get_bloginfo('url') . '/'.$this->link_base.'/'.$post->ID.'/'.$key;
 		return $theurl;
 	}
@@ -202,7 +211,3 @@ class prvurl {
 }
 
 $prvurl = new prvurl();
-
-
-
-?>
