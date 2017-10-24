@@ -42,7 +42,8 @@ class prvurl {
 		add_filter('posts_where', array(&$this, 'posts_where'));
 		add_action('template_redirect', array(&$this, 'template_redirect'));
 		add_action('admin_menu', array(&$this, 'admin_menu'));
-		add_action('load-post.php', array(&$this, 'load_post'));
+		add_filter('post_link', array(&$this, 'modify_post_link'), 10, 2);
+		add_filter('post_private_url', array(&$this, 'modify_post_link'), 10, 2);
 		add_action('save_post', array(&$this, 'save_post'));
 		add_filter('posts_results', array(&$this, 'posts_results'));
 		add_filter('redirect_canonical', array(&$this, 'redirect_canonical'), 10, 2);
@@ -149,11 +150,6 @@ class prvurl {
 		header('Pragma: no-cache');
 	}
 
-	function load_post() {
-		// This narrows our scope to when post.php loads
-		add_filter('post_link', array(&$this, 'modify_post_link'));
-	}
-
 	function save_post($post_id) {
 		$post_salt = $this->salt;
 		update_post_meta($post_id, $this->salt_key, $post_salt);
@@ -181,9 +177,8 @@ class prvurl {
 		return '%s';
 	}
 
-	function modify_post_link($permalink, $post, $leavename) {
-		global $post;
-		if ($post->post_status != 'private') {
+	function modify_post_link($permalink, $post) {
+		if ($post->post_status != 'private' && ! $post->private) {
 			return $permalink;
 		}
 		$post_salt = get_post_meta($posts[0]->ID, $this->salt_key, true);
